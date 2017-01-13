@@ -26,4 +26,10 @@ public class VersionedValue<T> implements Serializable {
 	public T getValue() {
 		return value;
 	}
+
+	@Override
+	public String toString() {
+		return "VersionedValue [version=" + version + ", value=" + value + "]";
+	}
+	
 }

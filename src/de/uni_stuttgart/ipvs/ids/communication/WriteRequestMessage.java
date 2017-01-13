@@ -17,4 +17,10 @@ public class WriteRequestMessage<T> extends VersionedValue<T> {
 		super(version, value);
 	}
 
+	@Override
+	public String toString() {
+		return "WriteRequestMessage [version=" + version + ", value=" + value + "]";
+	}
+	
+
 }

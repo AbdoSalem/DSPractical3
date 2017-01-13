@@ -46,6 +46,8 @@ public class MajorityConsensus<T> {
 	 */
 	protected Collection<MessageWithSource<Vote>> requestReadVote() throws QuorumNotReachedException {
 		// TODO: Implement me!
+		System.out.println("Request read votes");
+		
 	}
 	
 	/**
