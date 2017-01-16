@@ -31,5 +31,11 @@ public class Vote implements Serializable {
 		this.responseState = responseState;
 		this.version = version;
 	}
+
+	@Override
+	public String toString() {
+		return "Vote [responseState=" + responseState + ", version=" + version + "]";
+	}
+	
 	
 }

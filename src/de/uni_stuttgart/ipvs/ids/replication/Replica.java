@@ -14,6 +14,8 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Random;
 
+import de.uni_stuttgart.ipvs.ids.communication.PacketModel;
+import de.uni_stuttgart.ipvs.ids.communication.PacketSendReceive;
 import de.uni_stuttgart.ipvs.ids.communication.ReadRequestMessage;
 import de.uni_stuttgart.ipvs.ids.communication.ReleaseReadLock;
 import de.uni_stuttgart.ipvs.ids.communication.ReleaseWriteLock;
@@ -53,8 +55,7 @@ public class Replica<T> extends Thread {
 		this.availability = availability;
 		this.value = new VersionedValue<T>(0, initialValue);
 		this.lock = LockType.UNLOCKED;
-		log("new Replica: "+toString() );
-		
+		log("new Replica: "+toString() );		
 	}
 
 	/**
@@ -71,12 +72,28 @@ public class Replica<T> extends Thread {
 		// TODO: Implement me!
 		while (true) {
 			byte[] bytes = new byte[1024];
-			DatagramPacket dummyPacket = new DatagramPacket(bytes, bytes.length);
+		
 			try {
-				socket.receive(dummyPacket);
-				Object request = getObjectFromMessage(dummyPacket);
-				SocketAddress address = dummyPacket.getSocketAddress();
-				log("Received a packet");
+				
+				
+				if(lock == LockType.UNLOCKED){
+					count++;
+					if(count >DUTY_CYCLE-1)
+							count =0;
+					log("Count is "+ count);
+					
+					//if the current count is above availability then discard
+					//For a random failure
+					//if((rand.nextInt(100)+1)) > availability*DUTY_CYCLE) 					
+					if(count >= availability*DUTY_CYCLE){
+						log("Dropping message");
+						continue;
+					}
+				}
+				PacketModel model = PacketSendReceive.receivePacket(socket);
+				Object request = model.getData();
+				SocketAddress address = model.getAddress();
+				
 				if (request instanceof ReleaseReadLock) {
 					//Received a release read lock message
 					log("Release Read lock Message");
@@ -86,6 +103,7 @@ public class Replica<T> extends Thread {
 						lock = LockType.UNLOCKED;
 						lockHolder = null;
 						sendVote(address, Vote.State.YES, -1);
+						
 					} else {
 						//else send an ACK with NO 
 						sendVote(address, Vote.State.NO, -1);
@@ -106,21 +124,10 @@ public class Replica<T> extends Thread {
 				} else if (request instanceof RequestReadVote || request instanceof RequestWriteVote) {
 					//Received a vote request message
 					//increment no. of received requests
+
+					
+					
 					log("Request Read vote or write vote");
-					count++;
-					if(count >DUTY_CYCLE-1)
-						count =0;
-					
-					log("Count is "+ count);
-					
-					//if the current count is above availability then discard
-					//For a random failure
-					//if((rand.nextInt(100)+1)) > availability*DUTY_CYCLE) 					
-					if(count >= availability*DUTY_CYCLE){
-						log("Dropping message");
-						continue;
-					}
-					log("prcessing request");
 					if (lock == LockType.UNLOCKED) {
 						//if the current state is unlocked then send a YES vote with the current version 
 						sendVote(address, Vote.State.YES, value.getVersion());
@@ -128,13 +135,14 @@ public class Replica<T> extends Thread {
 						lock = request instanceof RequestWriteVote? LockType.WRITELOCK: LockType.READLOCK;
 						log("State changed to "+ (request instanceof RequestWriteVote? "WRITELOCK": "READLOCK"));
 						// set lockholder
-						lockHolder = new InetSocketAddress(dummyPacket.getAddress(),dummyPacket.getPort()); 
-						log("Voting yes to "+ dummyPacket.getAddress().getHostAddress()+":"+dummyPacket.getPort());	
+						lockHolder = address; 
+						log("Voting yes to "+ ((InetSocketAddress)address).getHostName()+":"+((InetSocketAddress)address).getPort());	
 					} else {
 						//else send a NO vote with the current version
 						log("Voting No As state is "+ lock);
 						sendVote(address, Vote.State.NO, value.getVersion());
 					}
+//					***********************This part is for upgrading the lock if it is supported********************
 //				} else if (request instanceof RequestWriteVote) {
 //					//Received a request write vote message
 //					if(count > availability*10)
@@ -151,6 +159,7 @@ public class Replica<T> extends Thread {
 //						//else send a NO vote with the current version
 //						sendVote(address, Vote.State.NO, value.getVersion());
 //					}
+//					******************************************************************************************
 				} else if (request instanceof ReadRequestMessage) {
 					//Received a read request message
 					log("it is a read request Message");
@@ -160,7 +169,7 @@ public class Replica<T> extends Thread {
 						synchronized (value) {
 							log("Returning value with version"+ value.toString() );
 							ValueResponseMessage<T> response = new ValueResponseMessage<T>(value.getValue());
-							sendPacket(response, address);
+							PacketSendReceive.sendPacket(socket,response, address);
 						}
 					}else {						
 						sendVote(address, Vote.State.NO, -1);
@@ -209,7 +218,7 @@ public class Replica<T> extends Thread {
 		// create a vote with the passes state and version
 		Vote vote = new Vote(state, version);
 		// send message
-		sendPacket(vote, address);
+		PacketSendReceive.sendPacket(socket,vote, address);
 	}
 
 	/**
@@ -219,44 +228,11 @@ public class Replica<T> extends Thread {
 	 */
 	protected Object getObjectFromMessage(DatagramPacket packet) throws IOException {
 		// TODO: Implement me!
-		try {
-			// create inout streams to deserialize byte[] to object
-			ByteArrayInputStream b = new ByteArrayInputStream(packet.getData());
-			ObjectInputStream o = new ObjectInputStream(b);
-			return o.readObject();
-
-		} catch (Exception e) {
-			log("Exception occured while reading packet");
-			e.printStackTrace();
-			return null; // Pacify the compiler
-		}
+		throw new UnsupportedOperationException("Used another function");
 
 	}
 
-	/*
-	 * This method creates a datagram packet with the to send object and send it
-	 * to the input address
-	 */
-	private void sendPacket(Object toSend, SocketAddress address) {
-		byte[] data;
-		try {
-			// convert object to byte[]
-			ByteArrayOutputStream b = new ByteArrayOutputStream();
-			ObjectOutputStream o = new ObjectOutputStream(b);
-			o.writeObject(toSend);
-			data = b.toByteArray();
-			// create the data packet and pass the byte[] to it and set
-			// address to passed address
-			DatagramPacket packet = new DatagramPacket(data, data.length);
-			packet.setSocketAddress(address);
-			// send packet
-			socket.send(packet);
-		} catch (Exception e) {
-			log("Exception occured while sending packet");
-			e.printStackTrace();
-		}
-	}
-	
+
 	public int getID() {
 		return id;
 	}
