@@ -1,14 +1,9 @@
 package de.uni_stuttgart.ipvs.ids.replication;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -61,6 +56,8 @@ public class MajorityConsensus<T> {
 					Vote vote = (Vote) received.getData();
 					if(vote.getState() == State.YES)
 						quiriom.add(new MessageWithSource<Vote>(replicaAddress, vote));
+					if(quiriom.size()> replicas.size()/2)
+						break;
 				}	
 			}catch(TimeoutException e){
 				System.out.println("Time out of one replica");
@@ -108,6 +105,8 @@ public class MajorityConsensus<T> {
 					Vote vote = (Vote) received.getData();
 					if(vote.getState() == State.YES)
 						quiriom.add(new MessageWithSource<Vote>(replicaAddress, vote));
+					if(quiriom.size()> replicas.size()/2)
+						break;
 				}	
 			}catch(TimeoutException e){
 				System.out.println("Time out of one replica");				
