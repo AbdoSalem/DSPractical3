@@ -1,19 +1,12 @@
 package de.uni_stuttgart.ipvs.ids.replication;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.util.Random;
-
 import de.uni_stuttgart.ipvs.ids.communication.PacketModel;
 import de.uni_stuttgart.ipvs.ids.communication.PacketSendReceive;
 import de.uni_stuttgart.ipvs.ids.communication.ReadRequestMessage;
@@ -37,7 +30,7 @@ public class Replica<T> extends Thread {
 	private VersionedValue<T> value;
 
 	protected DatagramSocket socket = null;
-	private final int DUTY_CYCLE=2;
+	private final int DUTY_CYCLE=100;
 	protected LockType lock;
 	private int count =0;
 	/**
@@ -74,26 +67,27 @@ public class Replica<T> extends Thread {
 			byte[] bytes = new byte[1024];
 		
 			try {
-				
-				
+				PacketModel model = PacketSendReceive.receivePacket(socket);
+				Object request = model.getData();
+				SocketAddress address = model.getAddress();
 				if(lock == LockType.UNLOCKED){
+					//====================dutycycle=====================
 					count++;
 					if(count >DUTY_CYCLE-1)
 							count =0;
 					log("Count is "+ count);
-					
+					//=================================================
+					int n=rand.nextInt(DUTY_CYCLE)+1;
+					log("the random number is "+n+" availability is " +(availability*DUTY_CYCLE));
 					//if the current count is above availability then discard
 					//For a random failure
-					//if((rand.nextInt(100)+1)) > availability*DUTY_CYCLE) 					
-					if(count >= availability*DUTY_CYCLE){
+					if(n > (availability*DUTY_CYCLE)){ 
+					// ============if a dutycycle is required here is its implementation===============
+//					if(count >= availability*DUTY_CYCLE){
 						log("Dropping message");
 						continue;
 					}
 				}
-				PacketModel model = PacketSendReceive.receivePacket(socket);
-				Object request = model.getData();
-				SocketAddress address = model.getAddress();
-				
 				if (request instanceof ReleaseReadLock) {
 					//Received a release read lock message
 					log("Release Read lock Message");

@@ -15,7 +15,7 @@ public class Main {
 	public static void main(String[] args) throws SocketException, QuorumNotReachedException {
 		int replicaPort = 4000;
 		int noReplicas = 10;
-		double prob = 0.5; // Probability for working replica
+		double prob = 0.6; // Probability for working replica
 		double value = 2.0;
 
 		List<Replica<Double>> replicas = new ArrayList<Replica<Double>>(noReplicas);
